@@ -5,52 +5,60 @@ import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Настройки страницы 
+# настройки страницы
 st.set_page_config(page_title="Car Price Predictor", layout="wide")
-st.title("Car Price Predictor")
 
-# Загрузка модели
+# заголовок
+st.title("Car Price Predictor")
+st.caption("Прогноз цены автомобиля и анализ данных")
+
+# загрузка модели
 @st.cache_resource
 def load_model():
     with open("models/ridge_ohe_model.pkl", "rb") as f:
         return pickle.load(f)
+
 model_data = load_model()
 model = model_data["model"]
 scaler = model_data["scaler"]
 feature_names = model_data["feature_names"]
 df_train = model_data["train_df"]
 
-# Палитра 
+# палитра для графиков
 palette = sns.color_palette("pastel")
 sns.set_style("whitegrid")
-# Состояние текущей вкладки 
+
+# состояние текущей вкладки
 if 'current_tab' not in st.session_state:
     st.session_state.current_tab = 'EDA'
+
 def select_tab(tab_name):
     st.session_state.current_tab = tab_name
-# Вкладки
+
+# вкладки как кнопки
 tab_cols = st.columns(4)
 tab_titles = ["EDA", "Категориальные", "Прогноз", "Коэффициенты"]
-tab_icons = [" ", " ", " ", " "]
+tab_icons = ["📊", "🧩", "🔮", "⚙️"]  # оставил только иконки без смайликов в тексте
 tab_colors = ["#FFC300", "#FF5733", "#33C3FF", "#75FF33"]
 
 for i, col in enumerate(tab_cols):
     if st.session_state.current_tab == tab_titles[i]:
-        col.button(f"{tab_icons[i]} {tab_titles[i]}", key=i,
+        col.button(f"{tab_titles[i]}", key=i,
                    on_click=select_tab, args=(tab_titles[i],),
                    use_container_width=True)
     else:
-        col.button(f"{tab_icons[i]} {tab_titles[i]}", key=f"other_{i}",
+        col.button(f"{tab_titles[i]}", key=f"other_{i}",
                    on_click=select_tab, args=(tab_titles[i],),
                    use_container_width=True)
 
 st.markdown("---")
 
-#  EDA 
+# eda
 if st.session_state.current_tab == "EDA":
     st.header("Exploratory Data Analysis (EDA)")
-    st.markdown("**Описание числовых признаков:**")
+    st.markdown("Описание числовых признаков:")
     st.dataframe(df_train.describe().T)
+
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Корреляционная матрица")
@@ -64,16 +72,20 @@ if st.session_state.current_tab == "EDA":
         sns.histplot(df_train['selling_price'], kde=True, color=palette[0])
         st.pyplot(plt.gcf())
 
-#  Категориальные признаки
+# категориальные признаки
 elif st.session_state.current_tab == "Категориальные":
     st.header("Категориальные признаки")
     st.markdown("Распределение цены по категориям:")
-    cat_cols = ['fuel', 'seller_type', 'transmission', 'owner']
+
+    cat_cols = ['fuel', 'seller_type', 'transmission', 'owner', 'seats']
     cat_titles = {
         'fuel': "Тип топлива",
         'seller_type': "Тип продавца",
         'transmission': "Коробка передач",
-        'owner': "Количество владельцев"}
+        'owner': "Количество владельцев",
+        'seats': "Количество мест"
+    }
+
     cols_layout = st.columns(2)
     for i, col_name in enumerate(cat_cols):
         plt.figure(figsize=(6,3))
@@ -86,12 +98,19 @@ elif st.session_state.current_tab == "Категориальные":
             with cols_layout[1]:
                 st.pyplot(plt.gcf())
 
-# Прогноз
+# прогноз
 elif st.session_state.current_tab == "Прогноз":
     st.header("Прогноз цены автомобиля")
     st.markdown("Выберите способ ввода данных:")
+
     pred_tab = st.radio("", ["CSV файл", "Ручной ввод"], horizontal=True)
-    # CSV файл
+
+    def prepare_input(df):
+        df_enc = pd.get_dummies(df, drop_first=True)
+        df_enc = df_enc.reindex(columns=feature_names, fill_value=0)
+        X_scaled = scaler.transform(df_enc)
+        return X_scaled
+
     if pred_tab == "CSV файл":
         st.markdown("Загрузите CSV с признаками. Пример:")
         st.markdown("""
@@ -104,62 +123,65 @@ elif st.session_state.current_tab == "Прогноз":
             input_df = pd.read_csv(uploaded_file)
             st.dataframe(input_df.head())
             try:
-                input_encoded = pd.get_dummies(input_df)
-                input_encoded = input_encoded.reindex(columns=feature_names, fill_value=0)
-                X_scaled = scaler.transform(input_encoded)
+                X_scaled = prepare_input(input_df)
                 predictions = model.predict(X_scaled)
-                st.success("✅ Прогноз цены:")
+                st.success("Прогноз цены:")
                 for i, pred in enumerate(predictions):
                     st.metric(label=f"Автомобиль {i+1}", value=f"{np.expm1(pred):,.0f} ₹")
             except Exception as e:
                 st.error(f"Ошибка при применении модели: {e}")
-
-    # Ручной ввод
     else:
         st.markdown("Введите значения признаков вручную:")
+
         numeric_features = ['year', 'km_driven', 'mileage', 'engine', 'max_power']
         cat_features = {
             'fuel': ['Petrol', 'Diesel', 'LPG'],
             'seller_type': ['Individual', 'Trustmark Dealer'],
             'transmission': ['Manual', 'Automatic'],
             'owner': ['First Owner','Second Owner','Third Owner','Fourth & Above Owner','Test Drive Car'],
-            'seats': ['seats_4','seats_5','seats_6','seats_7','seats_8','seats_9','seats_10','seats_14']}
+            'seats': [4,5,6,7,8,9,10,14]
+        }
+
         input_dict = {}
         col1, col2, col3 = st.columns(3)
+
         for i, feat in enumerate(numeric_features):
             col = [col1, col2, col3][i % 3]
             input_dict[feat] = col.number_input(f"{feat}", value=0.0)
+
         for feat, options in cat_features.items():
             input_dict[feat] = st.selectbox(f"{feat}", options)
+
         input_df = pd.DataFrame([input_dict])
         st.dataframe(input_df)
+
         try:
-            input_encoded = pd.get_dummies(input_df)
-            input_encoded = input_encoded.reindex(columns=feature_names, fill_value=0)
-            X_scaled = scaler.transform(input_encoded)
+            X_scaled = prepare_input(input_df)
             predictions = model.predict(X_scaled)
             st.success("Прогноз:")
             st.metric("Стоимость автомобиля", f"{np.expm1(predictions[0]):,.0f} ₹")
         except Exception as e:
             st.error(f"Ошибка при применении модели: {e}")
 
-# Коэффициенты модели 
+# коэффициенты модели
 elif st.session_state.current_tab == "Коэффициенты":
     st.header("Коэффициенты модели")
-    st.markdown("График коэффициентов Ridge")
+    st.markdown("График коэффициентов Ridge.")
+
     coef_series = pd.Series(model.coef_, index=feature_names).sort_values(key=abs, ascending=False)
-    fig, ax = plt.subplots(figsize=(20,5))  # компактнее
+    fig, ax = plt.subplots(figsize=(10,4))
     coef_series.plot(kind='bar', color='blue', ax=ax)
     ax.set_ylabel("Коэффициент")
     ax.set_xlabel("Признак")
     st.pyplot(fig)
+
     st.subheader("Описание признаков")
     feature_desc = {
         "year": "Год выпуска автомобиля",
         "km_driven": "Пробег автомобиля (км)",
-        "mileage": "Расход топлива",
-        "engine": "Объем двигателя",
-        "max_power": "Мощность двигателя",
+        "mileage": "Расход топлива (км/л)",
+        "engine": "Объем двигателя (см³)",
+        "max_power": "Мощность двигателя (л.с.)",
         "fuel_Diesel": "Автомобиль с дизельным двигателем",
         "fuel_Petrol": "Автомобиль с бензиновым двигателем",
         "fuel_LPG": "Автомобиль на LPG",
