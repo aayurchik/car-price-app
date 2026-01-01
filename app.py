@@ -38,7 +38,6 @@ def select_tab(tab_name):
 # вкладки как кнопки
 tab_cols = st.columns(4)
 tab_titles = ["EDA", "Категориальные", "Прогноз", "Коэффициенты"]
-tab_icons = ["📊", "🧩", "🔮", "⚙️"]  # оставил только иконки без смайликов в тексте
 tab_colors = ["#FFC300", "#FF5733", "#33C3FF", "#75FF33"]
 
 for i, col in enumerate(tab_cols):
@@ -83,8 +82,7 @@ elif st.session_state.current_tab == "Категориальные":
         'seller_type': "Тип продавца",
         'transmission': "Коробка передач",
         'owner': "Количество владельцев",
-        'seats': "Количество мест"
-    }
+        'seats': "Количество мест"}
 
     cols_layout = st.columns(2)
     for i, col_name in enumerate(cat_cols):
@@ -139,12 +137,9 @@ elif st.session_state.current_tab == "Прогноз":
             'seller_type': ['Individual', 'Trustmark Dealer'],
             'transmission': ['Manual', 'Automatic'],
             'owner': ['First Owner','Second Owner','Third Owner','Fourth & Above Owner','Test Drive Car'],
-            'seats': [4,5,6,7,8,9,10,14]
-        }
-
+            'seats': [4,5,6,7,8,9,10,14]}
         input_dict = {}
         col1, col2, col3 = st.columns(3)
-
         for i, feat in enumerate(numeric_features):
             col = [col1, col2, col3][i % 3]
             input_dict[feat] = col.number_input(f"{feat}", value=0.0)
