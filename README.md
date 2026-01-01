@@ -10,6 +10,7 @@ Streamlit-приложение для прогнозирования цены а
 
 ## Запуск локально
 ```bash
+https://car-price-app-yytjymldmgarqg4aa3s2mz.streamlit.app/
 streamlit run app.py
 ```
 
